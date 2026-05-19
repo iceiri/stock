@@ -36,6 +36,107 @@ def save_portfolio(cards):
     except:
         pass
 
+TAX_BADGE_CSS = """
+<style>
+/* Remove default margin/padding from markdown paragraphs */
+div[data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* --- FLEX ROW LAYOUT FOR NAME + BADGE + SELECTBOX --- */
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) > div {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-testid="element-container"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) > :nth-child(1) {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) > :nth-child(1) * {
+    min-width: 0 !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-testid="stMarkdownContainer"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) > :nth-child(2) {
+    flex: 0 0 auto !important;
+    width: max-content !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-testid="stSelectbox"] {
+    width: max-content !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-testid="stWidgetLabel"] {
+    display: none !important;
+}
+
+/* Style the selectbox */
+
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-baseweb="select"] > div:nth-child(1) {
+    background-color: #fef3c7 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 0 6px !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-baseweb="select"] > div:nth-child(1) > div {
+    color: #92400e !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-baseweb="select"] svg {
+    fill: #92400e !important;
+    width: 14px !important;
+    height: 14px !important;
+}
+
+div[data-baseweb="popover"] ul {
+    width: max-content !important;
+    min-width: 140px !important;
+}
+div[data-baseweb="popover"] ul li {
+    font-size: 0.8rem !important;
+}
+div[data-baseweb="popover"] ul li span {
+    text-overflow: unset !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+div[data-testid="stVerticalBlock"]:has(.tax-badge-row):not(:has(div[data-testid="stVerticalBlock"] .tax-badge-row)) div[data-baseweb="select"] input {
+    caret-color: transparent !important;
+}
+</style>
+"""
 
 SETTINGS_FILE = "settings.json"
 
@@ -117,7 +218,8 @@ KOREAN_TICKER_MAP: Dict[str, str] = {
     "sk하이닉스": "000660.KS",
     "하이닉스": "000660.KS",
     "카카오": "035720.KS",
-    "네이버": "035420.KQ",
+    "네이버": "035420.KS",
+    "에코프로비엠": "247540.KQ",
     "kodex미국나스닥100(h)": "449190.KS",
     "kodex미국나스닥100h": "449190.KS",
     "449190": "449190.KS",
@@ -145,6 +247,7 @@ DISPLAY_NAME_MAP: Dict[str, str] = {
 }
 
 
+@st.cache_data(ttl=3600)
 def search_naver_stock_code(name: str) -> str:
     """한글 종목명으로 네이버 금융 검색을 통해 6자리 티커 코드 또는 미국 주식 티커 찾기."""
     import requests
@@ -310,9 +413,28 @@ def fetch_price_history(ticker: str, start: dt.date, end: dt.date) -> pd.DataFra
 
 @st.cache_data(ttl=60)
 def fetch_latest_quote(ticker: str) -> Dict:
-    """현재가 및 전일 대비 정보."""
+    """현재가 및 전일 대비 정보 (실시간)."""
     for cand in ticker_candidates(ticker):
         ticker_obj = yf.Ticker(cand)
+        
+        # 1. fast_info를 통한 실시간 가격 조회 시도
+        try:
+            f_info = ticker_obj.fast_info
+            latest = float(f_info['lastPrice'])
+            prev = float(f_info['previousClose'])
+            if latest > 0 and prev > 0:
+                change = latest - prev
+                change_pct = (change / prev * 100)
+                return {
+                    "symbol": cand,
+                    "price": latest,
+                    "change": change,
+                    "change_pct": change_pct,
+                }
+        except Exception:
+            pass
+
+        # 2. 실패시 history를 통한 일봉 데이터 조회 (대체 수단)
         try:
             # 일부 한국 ETF/종목은 2일 데이터가 비어오는 경우가 있어 기간을 넉넉히 조회
             info = ticker_obj.history(period="1mo", interval="1d", auto_adjust=True)
@@ -398,10 +520,12 @@ def calculate_c_indicator(raw_ticker: str = "^NDX") -> dict:
         return {"error": "올바른 종목을 입력해주세요."}
     display_name = fetch_symbol_name(norm_ticker)
     
-    end_date = dt.date.today()
-    start_date = end_date - dt.timedelta(days=int(50 * 365.25))
+    data = yf.download(norm_ticker, period="max", progress=False)
     
-    data = yf.download(norm_ticker, start=start_date, end=end_date, progress=False)
+    if not data.empty:
+        start_date = data.index[0].date()
+    else:
+        start_date = dt.date.today()
     if data.empty or "Close" not in data.columns:
         return {"error": f"'{display_name}' ({norm_ticker}) 데이터를 불러올 수 없습니다."}
         
@@ -499,6 +623,30 @@ def is_korean_listed_ticker(ticker: str) -> bool:
     return t.endswith(".KS") or t.endswith(".KQ")
 
 
+def infer_tax_type(ticker: str, display_name: str = "") -> str:
+    """yfinance 정보와 종목명을 기반으로 세금 유형을 자동 추론합니다."""
+    kr = is_korean_listed_ticker(ticker)
+    if not kr:
+        return "미국직투(22%)"
+        
+    try:
+        # fast_info is faster but doesn't have quoteType. We need info.
+        info = yf.Ticker(ticker).info
+        q_type = info.get('quoteType', 'EQUITY')
+    except Exception:
+        q_type = 'EQUITY'
+        
+    if q_type == 'ETF':
+        name_lower = display_name.lower()
+        # 해외 지수나 자산 추종 ETF 키워드
+        overseas_keywords = ['미국', '나스닥', 's&p', '글로벌', '차이나', '인도', '베트남', '유로', '일본', '항셍', '다우']
+        if any(kw in name_lower for kw in overseas_keywords):
+            return "해외ETF(15.4%)"
+        return "국내주식(비과세)"
+        
+    return "국내주식(비과세)"
+
+
 def fmt_dollar(value: float) -> str:
     return f"{value:,.2f} 달러"
 
@@ -580,6 +728,7 @@ def render_market_dashboard():
     st.markdown("<br>", unsafe_allow_html=True)
 
 
+@st.fragment
 def render_portfolio_section():
     st.markdown("### 💰 실시간 내 자산 요약")
     st.caption("보유 자산을 입력하면 현재가와 수익률을 실시간으로 확인하고, 전체 자산의 원화 기준 합계를 계산해 줍니다.")
@@ -611,18 +760,29 @@ def render_portfolio_section():
                 card_id = str(uuid.uuid4())
                 item["id"] = card_id
 
-            cols = st.columns([3, 2, 2, 1])
+            cols = st.columns([2, 3, 2, 2, 1])
             with cols[0]:
+                if i == 0:
+                    st.markdown("<div style='font-size:0.875rem; color:#6b7280; font-weight:600; margin-bottom:5px;'>별명(선택)</div>", unsafe_allow_html=True)
+                nickname = st.text_input(
+                    "별명",
+                    value=str(item.get("별명", "")),
+                    key=f"card_nick_{card_id}",
+                    placeholder="예: 내 연금",
+                    label_visibility="collapsed"
+                )
+            with cols[1]:
                 if i == 0:
                     st.markdown("<div style='font-size:0.875rem; color:#6b7280; font-weight:600; margin-bottom:5px;'>종목</div>", unsafe_allow_html=True)
                 raw_symbol = st.text_input(
                     "종목",
                     value=str(item.get("종목", "")),
                     key=f"card_symbol_{card_id}",
-                    placeholder="예: QQQ, 삼성전자, 005930",
+                    placeholder="예: QQQ, 삼성전자",
                     label_visibility="collapsed"
                 )
-            with cols[1]:
+                
+            with cols[2]:
                 if i == 0:
                     st.markdown("<div style='font-size:0.875rem; color:#6b7280; font-weight:600; margin-bottom:5px;'>평단가</div>", unsafe_allow_html=True)
                 avg = st.number_input(
@@ -634,7 +794,7 @@ def render_portfolio_section():
                     key=f"card_avg_{card_id}",
                     label_visibility="collapsed"
                 )
-            with cols[2]:
+            with cols[3]:
                 if i == 0:
                     st.markdown("<div style='font-size:0.875rem; color:#6b7280; font-weight:600; margin-bottom:5px;'>수량</div>", unsafe_allow_html=True)
                 qty = st.number_input(
@@ -646,7 +806,7 @@ def render_portfolio_section():
                     key=f"card_qty_{card_id}",
                     label_visibility="collapsed"
                 )
-            with cols[3]:
+            with cols[4]:
                 if i == 0:
                     st.markdown("<div style='font-size:0.875rem; color:#6b7280; font-weight:600; margin-bottom:5px;'>&nbsp;</div>", unsafe_allow_html=True)
                 if st.button("삭제", key=f"card_del_{card_id}", use_container_width=True):
@@ -660,11 +820,11 @@ def render_portfolio_section():
             if norm_now and norm_now != norm_prev and usd_krw > 0:
                 buy_fx = usd_krw
 
-            next_cards.append({"id": card_id, "종목": raw_symbol, "평단가": float(avg), "수량": float(qty), "buy_fx": buy_fx})
+            next_cards.append({"id": card_id, "별명": nickname, "종목": raw_symbol, "평단가": float(avg), "수량": float(qty), "buy_fx": buy_fx})
         
         if delete_index is not None:
             deleted_card = next_cards.pop(delete_index)
-            for key in [f"card_symbol_{deleted_card['id']}", f"card_avg_{deleted_card['id']}", f"card_qty_{deleted_card['id']}", f"card_del_{deleted_card['id']}"]:
+            for key in [f"card_nick_{deleted_card['id']}", f"card_symbol_{deleted_card['id']}", f"card_tax_{deleted_card['id']}", f"card_avg_{deleted_card['id']}", f"card_qty_{deleted_card['id']}", f"card_del_{deleted_card['id']}"]:
                 if key in st.session_state:
                     del st.session_state[key]
             
@@ -684,7 +844,7 @@ def render_portfolio_section():
             if st.button("➕ 자산 추가", use_container_width=True):
                 import uuid
                 st.session_state.portfolio_cards.append(
-                    {"id": str(uuid.uuid4()), "종목": "", "평단가": 0.0, "수량": 0.0, "buy_fx": usd_krw if usd_krw > 0 else 1300.0}
+                    {"id": str(uuid.uuid4()), "별명": "", "종목": "", "평단가": 0.0, "수량": 0.0, "buy_fx": usd_krw if usd_krw > 0 else 1300.0}
                 )
                 save_portfolio(st.session_state.portfolio_cards)
                 st.rerun()
@@ -692,7 +852,7 @@ def render_portfolio_section():
             if st.button("🗑️ 전체 삭제", use_container_width=True):
                 for card in st.session_state.portfolio_cards:
                     card_id = card.get("id")
-                    for key in [f"card_symbol_{card_id}", f"card_avg_{card_id}", f"card_qty_{card_id}", f"card_del_{card_id}"]:
+                    for key in [f"card_nick_{card_id}", f"card_symbol_{card_id}", f"card_tax_{card_id}", f"card_avg_{card_id}", f"card_qty_{card_id}", f"card_del_{card_id}"]:
                         if key in st.session_state:
                             del st.session_state[key]
                 st.session_state.portfolio_cards = []
@@ -704,7 +864,7 @@ def render_portfolio_section():
         return
 
     # Process and Summary Section
-    rows = [(c["종목"].strip(), c["평단가"], c["수량"], c["buy_fx"]) for c in st.session_state.portfolio_cards if c["종목"].strip() and c["평단가"] > 0 and c["수량"] > 0]
+    rows = [(c["id"], c.get("별명", "").strip(), c["종목"].strip(), c["평단가"], c["수량"], c["buy_fx"]) for c in st.session_state.portfolio_cards if c["종목"].strip() and c["평단가"] > 0 and c["수량"] > 0]
 
     if not rows:
         st.info("종목 이름, 평단가, 수량을 올바르게 입력해 주세요.")
@@ -715,10 +875,12 @@ def render_portfolio_section():
 
     sum_cost_krw = 0.0
     sum_value_krw = 0.0
+    sum_us_profit_krw = 0.0
+    total_tax_krw = 0.0
     asset_results = []
     error_messages = []
 
-    for raw, avg, qty, buy_fx in rows:
+    for card_id, nickname, raw, avg, qty, buy_fx in rows:
         sym = normalize_ticker(raw)
         quote = fetch_latest_quote(sym) if sym else {}
         if not quote:
@@ -727,6 +889,12 @@ def render_portfolio_section():
 
         resolved_symbol = quote.get("symbol", sym)
         display_name = fetch_symbol_name(resolved_symbol)
+        if nickname:
+            display_name = f"{nickname} - {display_name}"
+        
+        user_tax_type = st.session_state.get(f"card_tax_override_{card_id}", "자동 추론")
+        actual_tax_type = infer_tax_type(resolved_symbol, display_name) if user_tax_type == "자동 추론" else user_tax_type
+
         cur = float(quote["price"])
         kr = is_korean_listed_ticker(resolved_symbol)
 
@@ -747,6 +915,13 @@ def render_portfolio_section():
         sum_cost_krw += cost_krw
         sum_value_krw += val_krw
         
+        indiv_tax = 0.0
+        if actual_tax_type == "해외ETF(15.4%)" and pnl_krw > 0:
+            indiv_tax = pnl_krw * 0.154
+            total_tax_krw += indiv_tax
+        elif actual_tax_type == "미국직투(22%)":
+            sum_us_profit_krw += pnl_krw
+            
         asset_results.append({
             "name": display_name,
             "kr": kr,
@@ -755,7 +930,10 @@ def render_portfolio_section():
             "cur": cur,
             "val_krw": val_krw,
             "pnl_krw": pnl_krw,
-            "pnl_pct": (pnl_krw / cost_krw * 100) if cost_krw else 0.0
+            "pnl_pct": (pnl_krw / cost_krw * 100) if cost_krw else 0.0,
+            "tax_type": actual_tax_type,
+            "indiv_tax": indiv_tax,
+            "card_id": card_id
         })
 
     if error_messages:
@@ -765,26 +943,61 @@ def render_portfolio_section():
     if not asset_results:
         return
 
+    # Calculate US tax
+    us_tax = (sum_us_profit_krw - 2500000) * 0.22 if sum_us_profit_krw > 2500000 else 0.0
+    
+    apply_tax = st.session_state.get("port_apply_tax", True)
+    if apply_tax:
+        total_tax_krw += us_tax
+    else:
+        total_tax_krw = 0.0
+
     # Portfolio Summary Display
     total_pnl_krw = sum_value_krw - sum_cost_krw
     total_pct = (total_pnl_krw / sum_cost_krw * 100) if sum_cost_krw > 0 else 0.0
+    
+    total_after_tax_pnl = total_pnl_krw - total_tax_krw
+    total_after_tax_pct = (total_after_tax_pnl / sum_cost_krw * 100) if sum_cost_krw > 0 else 0.0
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📊 내 포트폴리오 결과 요약")
+    hdr_c1, hdr_c2 = st.columns([3, 1])
+    with hdr_c1:
+        st.markdown("#### 📊 내 포트폴리오 결과 요약")
+    with hdr_c2:
+        st.checkbox("세금 계산 적용", value=apply_tax, key="port_apply_tax")
     
-    color = "#d32f2f" if total_pnl_krw > 0 else "#1976d2" if total_pnl_krw < 0 else "inherit"
+    color = "#d32f2f" if total_after_tax_pnl > 0 else "#1976d2" if total_after_tax_pnl < 0 else "inherit"
     with st.container(border=True):
-        st.markdown(f"<div style='font-size:1.1rem; color:#6b7280; font-weight:600; margin-bottom:10px;'>총 평가 자산 (원화 기준)</div>", unsafe_allow_html=True)
-        t_c1, t_c2, t_c3 = st.columns(3)
-        with t_c1:
-            st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 매수 금액</div><div style='font-size:1.6rem; font-weight:700;'>{sum_cost_krw:,.0f}원</div>", unsafe_allow_html=True)
-        with t_c2:
-            st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 평가 금액</div><div style='font-size:1.6rem; font-weight:700;'>{sum_value_krw:,.0f}원</div>", unsafe_allow_html=True)
-        with t_c3:
-            st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 수익</div><div style='font-size:1.6rem; font-weight:700; color:{color};'>{total_pnl_krw:+,.0f}원 ({total_pct:+.2f}%)</div>", unsafe_allow_html=True)
+        if apply_tax:
+            display_eval_krw = sum_value_krw - total_tax_krw
+            st.markdown(f"<div style='font-size:1.1rem; color:#6b7280; font-weight:600; margin-bottom:10px;'>총 평가 자산 (세후 원화 기준)</div>", unsafe_allow_html=True)
+            t_c1, t_c2, t_c3, t_c4, t_c5 = st.columns(5)
+            with t_c1:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 매수 금액</div><div style='font-size:1.4rem; font-weight:700;'>{sum_cost_krw:,.0f}원</div>", unsafe_allow_html=True)
+            with t_c2:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 평가 금액</div><div style='font-size:1.4rem; font-weight:700;'>{display_eval_krw:,.0f}원</div>", unsafe_allow_html=True)
+            with t_c3:
+                p_color = "#d32f2f" if total_pnl_krw > 0 else "#1976d2" if total_pnl_krw < 0 else "inherit"
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>세전 수익금</div><div style='font-size:1.4rem; font-weight:700; color:{p_color};'>{total_pnl_krw:+,.0f}원 ({total_pct:+.2f}%)</div>", unsafe_allow_html=True)
+            with t_c4:
+                tax_str = f"-{total_tax_krw:,.0f}원" if total_tax_krw > 0 else "0원"
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>예상 세금</div><div style='font-size:1.4rem; font-weight:700; color:#eab308;'>{tax_str}</div>", unsafe_allow_html=True)
+            with t_c5:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>세후 수익금</div><div style='font-size:1.4rem; font-weight:700; color:{color};'>{total_after_tax_pnl:+,.0f}원 ({total_after_tax_pct:+.2f}%)</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div style='font-size:1.1rem; color:#6b7280; font-weight:600; margin-bottom:10px;'>총 평가 자산 (원화 기준)</div>", unsafe_allow_html=True)
+            t_c1, t_c2, t_c3, t_c4 = st.columns(4)
+            with t_c1:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 매수 금액</div><div style='font-size:1.4rem; font-weight:700;'>{sum_cost_krw:,.0f}원</div>", unsafe_allow_html=True)
+            with t_c2:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 평가 금액</div><div style='font-size:1.4rem; font-weight:700;'>{sum_value_krw:,.0f}원</div>", unsafe_allow_html=True)
+            with t_c3:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 수익금</div><div style='font-size:1.4rem; font-weight:700; color:{color};'>{total_pnl_krw:+,.0f}원</div>", unsafe_allow_html=True)
+            with t_c4:
+                st.markdown(f"<div style='font-size:0.9rem; color:#6b7280;'>총 수익률</div><div style='font-size:1.4rem; font-weight:700; color:{color};'>{total_pct:+.2f}%</div>", unsafe_allow_html=True)
 
     if usd_krw > 0:
-        st.caption(f"적용 환율: 1 USD = {usd_krw:,.2f} KRW (자산별 매수 시점 환율 별도 적용)")
+        st.caption(f"적용 환율: 1 USD = {usd_krw:,.2f} KRW (자산별 매수 시점 환율 별도 적용) | 미국직투 합산 수익금: {sum_us_profit_krw:,.0f}원 (250만원 공제 대상)")
 
     if asset_results:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -792,20 +1005,63 @@ def render_portfolio_section():
         for res in asset_results:
             p_color = "#d32f2f" if res['pnl_krw'] > 0 else "#1976d2" if res['pnl_krw'] < 0 else "inherit"
             with st.container(border=True):
-                d_c1, d_c2, d_c3, d_c4 = st.columns([1.5, 1, 1, 1])
+                asset_tax = 0.0
+                if apply_tax:
+                    if res['tax_type'] == "해외ETF(15.4%)":
+                        asset_tax = res['indiv_tax'] if res['indiv_tax'] > 0 else 0.0
+                    elif res['tax_type'] == "미국직투(22%)":
+                        asset_tax = res['pnl_krw'] * 0.22 if res['pnl_krw'] > 0 else 0.0
+                    elif res['tax_type'] == "ISA(9.9%)":
+                        asset_tax = res['pnl_krw'] * 0.099 if res['pnl_krw'] > 0 else 0.0
+
+                after_tax_pnl = res['pnl_krw'] - asset_tax
+                after_tax_val_krw = res['val_krw'] - asset_tax
+
+                if apply_tax:
+                    d_c1, d_c2, d_c3, d_c4, d_c5 = st.columns([2.5, 1, 1, 1, 1])
+                else:
+                    d_c1, d_c2, d_c3, d_c4 = st.columns([2.5, 1, 1, 1])
+                    
                 with d_c1:
                     type_badge = "🇰🇷 한국" if res['kr'] else "🇺🇸 미국"
-                    st.markdown(f"**{res['name']}** <span style='font-size:0.8rem; background:#e5e7eb; padding:2px 6px; border-radius:4px;'>{type_badge}</span>", unsafe_allow_html=True)
+                    with st.container():
+                        html = f"""
+                        <div class="tax-badge-row" style='display:flex; align-items:center; gap:8px; height: 28px; width:100%; min-width:0;'>
+                            <div style='flex: 0 1 auto; min-width: 0; font-weight:700; font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height: normal; padding-top: 2px;' title='{res['name']}'>{res['name']}</div>
+                            <div style='flex-shrink:0; font-size:0.75rem; background:#e5e7eb; padding:0 6px; border-radius:4px; white-space:nowrap; display:flex; align-items:center; justify-content:center; height:22px; color:#374151; font-weight:600;'>{type_badge}</div>
+                        </div>
+                        """
+                        st.markdown(html, unsafe_allow_html=True)
+                        if apply_tax:
+                            tax_options = ["미국직투(22%)", "해외ETF(15.4%)", "국내주식(비과세)", "ISA(9.9%)"]
+                            st.selectbox("세금 유형", tax_options, index=tax_options.index(res['tax_type']) if res['tax_type'] in tax_options else 0, key=f"card_tax_override_{res['card_id']}", label_visibility="collapsed")
+                    
                     if res['kr']:
-                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280;'>평단가 {res['avg']:,.0f}원 / 현재가 {res['cur']:,.0f}원 / {res['qty']:g}주</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; margin-top: 4px;'>평단가 {res['avg']:,.0f}원 / 현재가 {res['cur']:,.0f}원 / {res['qty']:g}주</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280;'>평단가 ${res['avg']:,.2f} / 현재가 ${res['cur']:,.2f} / {res['qty']:g}주</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; margin-top: 4px;'>평단가 ${res['avg']:,.2f} / 현재가 ${res['cur']:,.2f} / {res['qty']:g}주</div>", unsafe_allow_html=True)
                 with d_c2:
-                    st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>평가액 (원화)</div><div style='font-size:1.1rem; font-weight:600; text-align:right;'>{res['val_krw']:,.0f}원</div>", unsafe_allow_html=True)
+                    if apply_tax:
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>세후 평가액 (원화)</div><div style='font-size:1.1rem; font-weight:600; text-align:right;'>{after_tax_val_krw:,.0f}원</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>평가액 (원화)</div><div style='font-size:1.1rem; font-weight:600; text-align:right;'>{res['val_krw']:,.0f}원</div>", unsafe_allow_html=True)
                 with d_c3:
-                    st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>수익금 (원화)</div><div style='font-size:1.1rem; font-weight:600; color:{p_color}; text-align:right;'>{res['pnl_krw']:+,.0f}원</div>", unsafe_allow_html=True)
-                with d_c4:
-                    st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>수익률 (원화)</div><div style='font-size:1.1rem; font-weight:600; color:{p_color}; text-align:right;'>{res['pnl_pct']:+.2f}%</div>", unsafe_allow_html=True)
+                    if apply_tax:
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>세전 수익금</div><div style='font-size:1.1rem; font-weight:600; color:{p_color}; text-align:right;'>{res['pnl_krw']:+,.0f}원</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>총 수익금</div><div style='font-size:1.1rem; font-weight:600; color:{p_color}; text-align:right;'>{res['pnl_krw']:+,.0f}원</div>", unsafe_allow_html=True)
+                
+                if apply_tax:
+                    with d_c4:
+                        tax_str = f"-{asset_tax:,.0f}원" if asset_tax > 0 else "0원"
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>예상 세금</div><div style='font-size:1.1rem; font-weight:600; color:#eab308; text-align:right;'>{tax_str}</div>", unsafe_allow_html=True)
+                    with d_c5:
+                        after_tax_pct = (after_tax_pnl / (res['val_krw'] - res['pnl_krw']) * 100) if (res['val_krw'] - res['pnl_krw']) > 0 else 0.0
+                        a_color = "#d32f2f" if after_tax_pnl > 0 else "#1976d2" if after_tax_pnl < 0 else "inherit"
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>세후 수익률</div><div style='font-size:1.1rem; font-weight:600; color:{a_color}; text-align:right;'>{after_tax_pct:+.2f}%</div>", unsafe_allow_html=True)
+                else:
+                    with d_c4:
+                        st.markdown(f"<div style='font-size:0.85rem; color:#6b7280; text-align:right;'>총 수익률</div><div style='font-size:1.1rem; font-weight:600; color:{p_color}; text-align:right;'>{res['pnl_pct']:+.2f}%</div>", unsafe_allow_html=True)
 
 
 def run_comparison_analysis(tickers_in: List[str], start_date: dt.date, end_date: dt.date) -> None:
@@ -898,6 +1154,7 @@ def run_comparison_analysis(tickers_in: List[str], start_date: dt.date, end_date
     ret_fig.update_layout(
         title="누적 수익률 비교",
         xaxis_title=None,
+        xaxis_hoverformat="%Y-%m-%d",
         yaxis_title="누적 수익률 (%)",
         hovermode="x unified",
         template="plotly_white",
@@ -946,6 +1203,7 @@ def run_comparison_analysis(tickers_in: List[str], start_date: dt.date, end_date
     dd_fig.update_layout(
         title="드로우다운 (MDD) 비교",
         xaxis_title=None,
+        xaxis_hoverformat="%Y-%m-%d",
         yaxis_title="드로우다운 (%)",
         hovermode="x unified",
         template="plotly_white",
@@ -1065,11 +1323,11 @@ def run_comparison_analysis(tickers_in: List[str], start_date: dt.date, end_date
         # Summary description
         st.markdown("""
         <div style='margin-top:20px; padding: 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;'>
-            <div style='font-size: 1rem; color: #0f172a; font-weight: 700; margin-bottom: 8px;'>💡 저점매수를 위한 회복률 기준</div>
-            <div style='font-size: 0.95rem; color: #334155; margin-bottom: 8px;'>개별종목 <strong>90%</strong> | ETF <strong>80%</strong></div>
+            <div style='font-size: 1rem; color: #0f172a; font-weight: 700; margin-bottom: 8px;'>💡 현재 하락 회복 확률 (과거 데이터 기준)</div>
+            <div style='font-size: 0.95rem; color: #334155; margin-bottom: 4px;'>과거 전체 기간 동안 주가가 지금보다 더 크게 하락했던 적이 얼만큼 있었는지를 백분율로 나타냅니다.</div>
             <div style='font-size: 0.85rem; color: #64748b; line-height: 1.4;'>
-                * 위 표의 회복률은 조회하신 기간 동안 주가가 해당 MDD(최대낙폭)보다 <strong>상단(덜 하락한 상태)에 머무른 누적 확률 분포(CDF)</strong>를 의미합니다.<br>
-                * 현재 낙폭 구간은 초록색 테두리로 표시됩니다. 회복률이 높은 구간일수록 저점매수의 신뢰도가 높아집니다.
+                * <strong>회복률 수치가 높을수록:</strong> 주가가 역사적인 바닥권에 근접하여 저점 매수에 유리함을 뜻합니다.<br>
+                * 파란색 테두리는 현재의 낙폭 상태를 의미합니다. (권장 매수 기준: 개별종목 90% 이상 / ETF 80% 이상)
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1080,11 +1338,9 @@ def render_comparison_section():
     st.markdown("### 📊 종목 비교 분석 (수익률 & MDD)")
 
     st.markdown(
-        "최대 **3개 종목**을 선택해 기간별 **누적 수익률**과 **최대 낙폭(MDD)**을 비교합니다.  \n"
-        "- 한글 종목명(삼성전자, 애플 등) 또는 티커(AAPL, 005930)를 자유롭게 입력해 주세요.  \n"
-        "- **소문자(aapl, msft 등)로 입력해도** 자동으로 인식됩니다.  \n"
-        "- **1개 종목만 입력해도** 정상적으로 단독 분석 그래프가 표시됩니다.  \n"
-        "- 💡 **참고:** 해외 주식(예: QQQ)의 비교 수익률은 환율 변동이 배제된 **달러(USD) 기준 순수 주가 상승률**입니다."
+        "최초 투자 원금이 현재까지 어떻게 변동되었는지(누적 수익률), 그리고 그 과정에서 최대 어느 정도의 손실(MDD)을 겪었는지 비교합니다.  \n"
+        "- 종목명(한글/영어) 또는 티커를 입력하세요. (최대 3개 입력 가능/1개 입력 시 단독 분석 지원)  \n"
+        "- 💡 **주의:** 해외 주식의 수익률은 환율 변동이 배제된 순수 달러(USD) 주가 상승률 기준입니다."
     )
 
     cols = st.columns(3)
@@ -1129,11 +1385,11 @@ def render_comparison_section():
     run_comparison_analysis(state["tickers"], state["start"], state["end"])
 
 
-def run_investment_simulation(tickers_in: List[str], start_date: dt.date, end_date: dt.date, sim_type: str, amount: float, apply_tax: bool = False):
+def run_investment_simulation(tickers_with_id: List[tuple], start_date: dt.date, end_date: dt.date, sim_type: str, amount: float):
     fig = go.Figure()
     results = []
     valid_df_for_plot = None
-    for raw_t in tickers_in:
+    for sim_id, raw_t in tickers_with_id:
         norm_ticker = normalize_ticker(raw_t)
         if not norm_ticker:
             continue
@@ -1205,9 +1461,17 @@ def run_investment_simulation(tickers_in: List[str], start_date: dt.date, end_da
         final_value = df['Portfolio Value'].iloc[-1]
         profit = final_value - total_invested
         
+        user_tax_type = st.session_state.get(f"sim_tax_override_{sim_id}", "자동 추론")
+        actual_tax_type = infer_tax_type(resolved_symbol, display_name) if user_tax_type == "자동 추론" else user_tax_type
+        
         tax_amount = 0.0
-        if apply_tax and not kr and profit > 2500000:
-            tax_amount = (profit - 2500000) * 0.22
+        if st.session_state.get("sim_apply_tax", True):
+            if actual_tax_type == "미국직투(22%)" and profit > 2500000:
+                tax_amount = (profit - 2500000) * 0.22
+            elif actual_tax_type == "해외ETF(15.4%)" and profit > 0:
+                tax_amount = profit * 0.154
+            elif actual_tax_type == "ISA(9.9%)" and profit > 0:
+                tax_amount = profit * 0.099
             
         profit_after_tax = profit - tax_amount
         final_value_after_tax = final_value - tax_amount
@@ -1226,7 +1490,9 @@ def run_investment_simulation(tickers_in: List[str], start_date: dt.date, end_da
             "final_value_after_tax": final_value_after_tax,
             "profit_pct": profit_pct_after_tax,
             "line_color": line_color,
-            "kr": kr
+            "kr": kr,
+            "tax_type": actual_tax_type,
+            "sim_id": sim_id
         })
         
         df['ROI'] = np.where(df['Total Invested'] > 0, (df['Profit'] / df['Total Invested']) * 100, 0.0)
@@ -1252,49 +1518,70 @@ def run_investment_simulation(tickers_in: List[str], start_date: dt.date, end_da
         return
 
     st.markdown("<br>", unsafe_allow_html=True)
-    col_title, col_chk = st.columns([0.7, 0.3])
-    with col_title:
+    hdr_c1, hdr_c2 = st.columns([3, 1])
+    with hdr_c1:
         st.markdown("#### 💰 시뮬레이션 결과 요약 (원화 기준)")
-    with col_chk:
-        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        st.checkbox("해외주식 양도소득세(22%) 적용", key="sim_apply_tax")
+    with hdr_c2:
+        apply_tax = st.checkbox("세금 계산 적용", value=st.session_state.get("sim_apply_tax", True), key="sim_apply_tax")
         
     for res in results:
         color = "#d32f2f" if res['profit_after_tax'] > 0 else "#1976d2" if res['profit_after_tax'] < 0 else "inherit"
         with st.container(border=True):
             line_color = res.get('line_color', '#111827')
             kr_badge = "🇰🇷 한국" if res.get('kr') else "🇺🇸 미국"
-            st.markdown(f"**<span style='color:{line_color};'>■</span> {res['name']}** <span style='font-size:0.8rem; background:#e5e7eb; padding:2px 6px; border-radius:4px;'>{kr_badge}</span>", unsafe_allow_html=True)
+            
+            with st.container():
+                html = f"""
+                <div class="tax-badge-row" style='display:flex; align-items:center; gap:8px; height: 28px; width:100%; min-width:0;'>
+                    <div style='flex: 0 1 auto; min-width: 0; font-weight:700; font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height: normal; padding-top: 2px;' title='{res['name']}'><span style='color:{line_color};'>■</span> {res['name']}</div>
+                    <div style='flex-shrink:0; font-size:0.75rem; background:#e5e7eb; padding:0 6px; border-radius:4px; white-space:nowrap; display:flex; align-items:center; justify-content:center; height:22px; color:#374151; font-weight:600;'>{kr_badge}</div>
+                </div>
+                """
+                st.markdown(html, unsafe_allow_html=True)
+                if apply_tax:
+                    tax_options = ["미국직투(22%)", "해외ETF(15.4%)", "국내주식(비과세)", "ISA(9.9%)"]
+                    st.selectbox("세금 유형", tax_options, index=tax_options.index(res['tax_type']) if res['tax_type'] in tax_options else 0, key=f"sim_tax_override_{res['sim_id']}", label_visibility="collapsed")
             
             if apply_tax:
                 col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>총 투자 원금</div><div style='font-size:1.5rem; font-weight:600;'>{res['total_invested']:,.0f}원</div>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>최종 평가액</div><div style='font-size:1.5rem; font-weight:600;'>{res['final_value_after_tax']:,.0f}원</div>", unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>세전 수익금</div><div style='font-size:1.5rem; font-weight:600; color:{color};'>{res['profit']:+,.0f}원</div>", unsafe_allow_html=True)
+            else:
+                col1, col2, col3, col4 = st.columns(4)
+                
+            with col1:
+                st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>총 투자 원금</div><div style='font-size:1.5rem; font-weight:600;'>{res['total_invested']:,.0f}원</div>", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>최종 평가액</div><div style='font-size:1.5rem; font-weight:600;'>{res['final_value_after_tax']:,.0f}원</div>", unsafe_allow_html=True)
+            with col3:
+                p_color = "#d32f2f" if res['profit'] > 0 else "#1976d2" if res['profit'] < 0 else "inherit"
+                if apply_tax:
+                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>세전 수익금</div><div style='font-size:1.5rem; font-weight:600; color:{p_color};'>{res['profit']:+,.0f}원</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>총 수익금</div><div style='font-size:1.5rem; font-weight:600; color:{p_color};'>{res['profit']:+,.0f}원</div>", unsafe_allow_html=True)
+            
+            if apply_tax:
                 with col4:
                     tax_str = f"-{res['tax_amount']:,.0f}원" if res['tax_amount'] > 0 else "0원"
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>예상 세금(22%)</div><div style='font-size:1.5rem; font-weight:600; color:#eab308;'>{tax_str}</div>", unsafe_allow_html=True)
+                    if res['tax_type'] == "미국직투(22%)":
+                        tax_title = "예상 세금(22%)"
+                    elif res['tax_type'] == "해외ETF(15.4%)":
+                        tax_title = "예상 세금(15.4%)"
+                    elif res['tax_type'] == "ISA(9.9%)":
+                        tax_title = "예상 세금(9.9%)"
+                    else:
+                        tax_title = "예상 세금"
+                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>{tax_title}</div><div style='font-size:1.5rem; font-weight:600; color:#eab308;'>{tax_str}</div>", unsafe_allow_html=True)
                 with col5:
                     st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>세후 수익률</div><div style='font-size:1.5rem; font-weight:600; color:{color};'>{res['profit_pct']:+.2f}%</div>", unsafe_allow_html=True)
             else:
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>총 투자 원금</div><div style='font-size:1.5rem; font-weight:600;'>{res['total_invested']:,.0f}원</div>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>최종 평가액</div><div style='font-size:1.5rem; font-weight:600;'>{res['final_value']:,.0f}원</div>", unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>수익금</div><div style='font-size:1.5rem; font-weight:600; color:{color};'>{res['profit_after_tax']:+,.0f}원</div>", unsafe_allow_html=True)
                 with col4:
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>수익률</div><div style='font-size:1.5rem; font-weight:600; color:{color};'>{res['profit_pct']:+.2f}%</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;'>총 수익률</div><div style='font-size:1.5rem; font-weight:600; color:{p_color};'>{res['profit_pct']:+.2f}%</div>", unsafe_allow_html=True)
         
     if valid_df_for_plot is not None:
-        fig.add_trace(go.Scatter(x=valid_df_for_plot.index, y=valid_df_for_plot['Total Invested'].round(0), mode='lines', name='누적 투자금', line=dict(dash='dash', color='#9e9e9e'), hovertemplate='%{y:,.0f}원<extra></extra>'))
+        fig.add_trace(go.Scatter(x=valid_df_for_plot.index, y=valid_df_for_plot['Total Invested'].round(0), mode='lines', name='누적 투자금', line=dict(dash='dash', color='#9e9e9e'), hovertemplate='누적 투자금: %{y:,.0f}원<extra></extra>'))
     fig.update_layout(
         title=f"투자 시뮬레이션 결과 ({sim_type}) - 원화(KRW)", 
-        xaxis_title=None, 
+        xaxis_title=None,
+        xaxis_hoverformat="%Y-%m-%d", 
         yaxis_title="금액 (원)", 
         hovermode="x unified", 
         template="plotly_white",
@@ -1304,6 +1591,7 @@ def run_investment_simulation(tickers_in: List[str], start_date: dt.date, end_da
     st.plotly_chart(fig, use_container_width=True)
 
 
+@st.fragment
 def render_simulation_section():
     st.markdown("### ⏳ 과거 투자 시뮬레이션 (백테스팅)")
     st.markdown("과거 특정 시점에 투자했다면 현재 얼마가 되었을지 **원화(KRW)** 기준으로 계산합니다. (미국 주식은 과거 환율 자동 적용)")
@@ -1340,18 +1628,15 @@ def render_simulation_section():
         st.error("시작일은 종료일보다 빨라야 합니다.")
         return
         
-    sim_tickers = [sim_t1, sim_t2, sim_t3]
-    valid_sim_tickers = [t.strip() for t in sim_tickers if t.strip()]
+    sim_tickers = [("sim_1", sim_t1), ("sim_2", sim_t2), ("sim_3", sim_t3)]
+    valid_sim_tickers = [(sid, t.strip()) for sid, t in sim_tickers if t.strip()]
     
-    apply_tax = st.session_state.get("sim_apply_tax", False)
     if valid_sim_tickers:
-        run_investment_simulation(valid_sim_tickers, sim_start, sim_end, sim_type, amount, apply_tax)
+        run_investment_simulation(valid_sim_tickers, sim_start, sim_end, sim_type, amount)
 
 
-def calculate_c_indicator_history(ticker: str, S0: float, mu: float, sigma: float, start_date: dt.date, years=5) -> pd.DataFrame:
-    end_date = dt.date.today()
-    plot_start = end_date - dt.timedelta(days=int(years * 365.25))
-    data = yf.download(ticker, start=start_date, end=end_date, progress=False)
+def calculate_c_indicator_history(ticker: str, S0: float, mu: float, sigma: float, start_date: dt.date) -> pd.DataFrame:
+    data = yf.download(ticker, period="max", progress=False)
     if data.empty or "Close" not in data.columns:
         return pd.DataFrame()
     
@@ -1360,7 +1645,7 @@ def calculate_c_indicator_history(ticker: str, S0: float, mu: float, sigma: floa
         close = close.iloc[:, 0]
     close = close.dropna()
     
-    plot_data = close[close.index >= pd.Timestamp(plot_start)]
+    plot_data = close
     if plot_data.empty:
         return pd.DataFrame()
         
@@ -1370,12 +1655,14 @@ def calculate_c_indicator_history(ticker: str, S0: float, mu: float, sigma: floa
     z_scores = (np.log(plot_data / S0) - mu * plot_t) / (sigma * np.sqrt(plot_t))
     percentiles = stats.norm.cdf(z_scores) * 100
     
-    z_99 = stats.norm.ppf(0.99)
-    z_75 = stats.norm.ppf(0.75)
-    z_55 = stats.norm.ppf(0.55)
-    z_45 = stats.norm.ppf(0.45)
-    z_25 = stats.norm.ppf(0.25)
-    z_01 = stats.norm.ppf(0.01)
+    z_99 = stats.norm.ppf(0.99)   # CI ~0%
+    z_75 = stats.norm.ppf(0.75)   # CI 25%
+    z_625 = stats.norm.ppf(0.625) # CI 37.5%
+    z_55 = stats.norm.ppf(0.55)   # CI 45%
+    z_45 = stats.norm.ppf(0.45)   # CI 55%
+    z_375 = stats.norm.ppf(0.375) # CI 62.5%
+    z_25 = stats.norm.ppf(0.25)   # CI 75%
+    z_01 = stats.norm.ppf(0.01)   # CI ~100%
     
     return pd.DataFrame({
         "Date": plot_data.index,
@@ -1384,16 +1671,438 @@ def calculate_c_indicator_history(ticker: str, S0: float, mu: float, sigma: floa
         "Median": S0 * np.exp(mu * plot_t),
         "Band_99": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_99),
         "Band_75": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_75),
+        "Band_625": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_625),
         "Band_55": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_55),
         "Band_45": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_45),
+        "Band_375": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_375),
         "Band_25": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_25),
         "Band_01": S0 * np.exp(mu * plot_t + sigma * np.sqrt(plot_t) * z_01)
     })
 
+def fetch_vkospi_from_public_api() -> float:
+    """공공데이터포털 API 또는 인베스팅닷컴에서 VKOSPI(코스피200 변동성지수)를 가져옵니다."""
+    import requests
+    import os
+    import re
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    
+    # 1. 공공데이터포털 API 시도
+    service_key = os.environ.get("DATA_GO_KR_KEY", "")
+    if service_key:
+        try:
+            url = "http://apis.data.go.kr/1160100/service/GetMarketIndexInfoService/getStockMarketIndex"
+            params = {
+                "serviceKey": requests.utils.unquote(service_key), # URL 인코딩 이슈 방지
+                "numOfRows": "1",
+                "pageNo": "1",
+                "resultType": "json",
+                "idxNm": "코스피 200 변동성지수"
+            }
+            res = requests.get(url, params=params, timeout=3, verify=False)
+            if res.status_code == 200:
+                data = res.json()
+                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                if items:
+                    return float(items[0].get("clpr", 0.0))
+        except Exception:
+            pass
+
+    # 2. 인베스팅닷컴 폴백 (매우 안정적)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        url = "https://kr.investing.com/indices/kospi-volatility"
+        res = requests.get(url, headers=headers, timeout=3)
+        match = re.search(r'data-test="instrument-price-last">([\d,.]+)', res.text)
+        if match:
+            return float(match.group(1).replace(',', ''))
+    except Exception:
+        pass
+        
+    return 0.0
+
+def fetch_vkospi_history(days: int = 100) -> dict:
+    """공공데이터포털 API를 통해 VKOSPI 최근 히스토리 데이터를 가져옵니다."""
+    import requests
+    import os
+    import pandas as pd
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    vk_dict = {}
+    
+    service_key = os.environ.get("DATA_GO_KR_KEY", "")
+    if service_key:
+        try:
+            url = "http://apis.data.go.kr/1160100/service/GetMarketIndexInfoService/getStockMarketIndex"
+            params = {
+                "serviceKey": requests.utils.unquote(service_key),
+                "numOfRows": str(days),
+                "pageNo": "1",
+                "resultType": "json",
+                "idxNm": "코스피 200 변동성지수"
+            }
+            res = requests.get(url, params=params, timeout=5, verify=False)
+            if res.status_code == 200:
+                data = res.json()
+                items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+                for item in items:
+                    dt_str = item.get("basDt", "")
+                    clpr = item.get("clpr", "0")
+                    if dt_str and clpr:
+                        # Timestamp 대신 순수 date 객체로 저장하여 매칭 불일치 해결
+                        dt_obj = pd.to_datetime(dt_str).date()
+                        vk_dict[dt_obj] = float(clpr)
+        except Exception:
+            pass
+            
+    return vk_dict
+
+
+def calculate_rsi_ema(series: pd.Series, period: int = 14) -> pd.Series:
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0).ewm(alpha=1/period, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/period, adjust=False).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def evaluate_timing_state(mdd, ma_diff, vix, rsi, is_tail_vol_spike, th, recovery_rate):
+    """
+    th: dict containing 'mdd1', 'mdd2', 'mdd3', 'mdd_tail', 'rec_th'
+    """
+    # 역사적 회복률(바닥권 통계) 인증 마크 부여 여부
+    is_rec_hit = recovery_rate >= th['rec_th']
+    badge = " [바닥 확인 ✅]" if is_rec_hit else ""
+    
+    # 3단계: 시스템 붕괴급 투매 (VIX 35 이상 초공포 OR 큰 하락 중 투매 꼬리 발생)
+    if (mdd <= th['mdd3'] and vix >= 35) or (mdd <= th['mdd_tail'] and is_tail_vol_spike):
+        return 3, f"🔴 3단계: 찐 저점 포착 (시스템 투매 국면){badge}", "#ef4444", "역사적 바닥일 확률이 높습니다! 예비 현금을 4배수 이상 적극적으로 투입해 주력 ETF 비중을 늘리고, 레버리지 자산의 신규 진입을 진지하게 고려해 볼 수 있는 공격적 매수 시점입니다."
+    # 2단계: 본격 약세장 속 투매 (MDD 기준치 이상 하락 중 VIX 30 이상 또는 RSI 극저점)
+    elif mdd <= th['mdd2'] and (vix >= 30 or rsi <= 30):
+        return 2, f"🟠 2단계: 약세장 투매 구간 (비중 대폭 확대){badge}", "#f97316", "본격적인 공포 구간입니다. 주력 ETF 매수 금액을 2.5배로 과감히 증액하세요. 레버리지 예비 자금의 30%를 투입해 포트폴리오를 재구축할 타이밍입니다."
+    # 1단계: 단기 조정 중 과매도 (MDD 기준치 이상 하락 중 공포 심리 확대 또는 RSI 과매도)
+    elif mdd <= th['mdd1'] and (vix >= 22 or rsi <= 40):
+        return 1, f"🟡 1단계: 단기 조정 구간 (비중 일부 확대){badge}", "#eab308", "주력 ETF 매수 금액을 1.5배로 늘리세요. 예비 자금의 10%를 활용해 소량 진입해 볼 수 있습니다."
+    else:
+        return 0, "💤 관망 / 정기 매수 구간", "#94a3b8", "현재는 특별한 저점 매수 구간이 아닙니다. 설정한 정기 매수 금액(1.0배수)만 적립식으로 유지하세요."
+
+def render_timing_section():
+    st.markdown("### 🎯 매수 시점 판별 (타이밍 포착)")
+    st.markdown("현재 지표(MDD, VIX, RSI, 장기 추세선, 캔들 패턴)를 복합적으로 분석해 기계적인 저점 매수 타이밍과 행동 지침을 진단합니다.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        t_ticker = st.text_input("타이밍 진단 종목", value=st.session_state.get("timing_ticker", "QQQ"), key="timing_ticker")
+    with col2:
+        history_period = st.radio("과거 차트 조회 기간", ["1년", "3년", "5년", "최대"], horizontal=True, index=0)
+    
+    if t_ticker.strip():
+        with st.spinner("타이밍 지표 및 히스토리를 연산하는 중입니다..."):
+            norm_t = normalize_ticker(t_ticker)
+            if not norm_t:
+                st.error("잘못된 종목 코드입니다.")
+                return
+            
+            buffer_days = 400
+            if history_period == "1년":
+                query_days = 365
+            elif history_period == "3년":
+                query_days = 365 * 3
+            elif history_period == "5년":
+                query_days = 365 * 5
+            else:
+                query_days = 365 * 10
+                
+            end_d = dt.date.today()
+            start_d = end_d - dt.timedelta(days=query_days + buffer_days)
+            df = yf.download(norm_t, start=start_d, end=end_d, progress=False)
+            vix_df = yf.download("^VIX", start=start_d, end=end_d, progress=False)
+
+            if df.empty or "Close" not in df.columns:
+                st.error("종목 데이터를 가져오지 못했습니다.")
+                return
+                
+            close_s = df["Close"].iloc[:, 0] if isinstance(df["Close"], pd.DataFrame) else df["Close"]
+            open_s = df["Open"].iloc[:, 0] if isinstance(df["Open"], pd.DataFrame) else df["Open"]
+            low_s = df["Low"].iloc[:, 0] if isinstance(df["Low"], pd.DataFrame) else df["Low"]
+            vol_s = df["Volume"].iloc[:, 0] if isinstance(df["Volume"], pd.DataFrame) else df["Volume"]
+            
+            close_s = close_s.dropna()
+            if len(close_s) < 20:
+                st.error("데이터 기간이 너무 짧습니다.")
+                return
+                
+            cur_price = close_s.iloc[-1]
+            high_52w = close_s.tail(252).max()
+            mdd = (cur_price - high_52w) / high_52w * 100
+            
+            try:
+                info = yf.Ticker(norm_t).info
+                quote_type = info.get("quoteType", "EQUITY")
+                long_name = info.get("longName", "").upper()
+            except Exception:
+                quote_type = "EQUITY"
+                long_name = ""
+            
+            # 한국 개별 종목 예외 처리 (6자리 숫자 티커인 경우 EQUITY 강제 적용)
+            import re
+            is_kr_ticker = bool(re.match(r'^\d{6}\.(KS|KQ)$', norm_t))
+            if is_kr_ticker:
+                # 레버리지 키워드가 없으면 개별 종목으로 간주 (데이터 제공처의 오류 방지)
+                if quote_type != "EQUITY":
+                    quote_type = "EQUITY"
+
+                
+            # 자산군 분류 로직
+            leverage_keywords = ["2X", "3X", "LEVERAGED", "BULL", "ULTRA", "PROSHARES TRUST ULTRA", "DIREXION DAILY"]
+            is_leverage = any(kw in long_name for kw in leverage_keywords) or \
+                          any(tk in norm_t.upper() for tk in ["TQQQ", "QLD", "SOXL", "UPRO", "BULL", "LABU", "TECL", "FAS"])
+            
+            if is_leverage:
+                asset_cat = "LEVERAGE"
+                cat_name = "레버리지 ETF (2x/3x)"
+                th = {"mdd1": -20, "mdd2": -35, "mdd3": -50, "mdd_tail": -25, "rec_th": 85}
+            elif quote_type == "EQUITY":
+                asset_cat = "EQUITY"
+                cat_name = "개별 종목"
+                th = {"mdd1": -15, "mdd2": -25, "mdd3": -35, "mdd_tail": -20, "rec_th": 90}
+            else:
+                asset_cat = "ETF_INDEX"
+                cat_name = "지수 및 일반 ETF"
+                th = {"mdd1": -10, "mdd2": -15, "mdd3": -20, "mdd_tail": -15, "rec_th": 80}
+            
+            # (원래 여기 있던 st.info 안내 박스는 가독성을 위해 하단으로 이동됨)
+
+            ma_days = 200 if quote_type in ["ETF", "INDEX", "MUTUALFUND"] else 120
+            
+            ma_val = close_s.rolling(ma_days).mean().iloc[-1]
+            ma_diff = (cur_price - ma_val) / ma_val * 100 if not np.isnan(ma_val) else 0
+            
+            # 히스토리 MDD 계산 (전체 기간 기준 통계 산출)
+            full_high_52w = close_s.rolling(252).max()
+            full_mdd_series = (close_s - full_high_52w) / full_high_52w
+            
+            mdd_for_stat = full_mdd_series.dropna()
+            current_dd = mdd / 100.0
+            total_stat_days = len(mdd_for_stat)
+            recovery_rate_now = (mdd_for_stat >= current_dd).sum() / total_stat_days * 100 if total_stat_days > 0 else 0
+            
+            rsi_s = calculate_rsi_ema(close_s)
+            rsi = rsi_s.iloc[-1] if not rsi_s.dropna().empty else 50
+            
+            # 공포 지수 선택 (US -> VIX, KR -> VKOSPI)
+            is_korean = norm_t.endswith(".KS") or norm_t.endswith(".KQ")
+            fear_idx_name = "VKOSPI" if is_korean else "VIX"
+            fear_val = 20.0
+            
+            if is_korean:
+                fear_val = fetch_vkospi_from_public_api()
+                # VKOSPI가 0이면(실패 시) VIX로 폴백
+                if fear_val <= 0:
+                    if not vix_df.empty and "Close" in vix_df.columns:
+                        v_s = vix_df["Close"].iloc[:, 0] if isinstance(vix_df["Close"], pd.DataFrame) else vix_df["Close"]
+                        v_s = v_s.dropna()
+                        if not v_s.empty:
+                            fear_val = v_s.iloc[-1]
+            else:
+                if not vix_df.empty and "Close" in vix_df.columns:
+                    v_s = vix_df["Close"].iloc[:, 0] if isinstance(vix_df["Close"], pd.DataFrame) else vix_df["Close"]
+                    v_s = v_s.dropna()
+                    if not v_s.empty:
+                        fear_val = v_s.iloc[-1]
+                    
+            vol_20ma = vol_s.rolling(20).mean().iloc[-1]
+            cur_vol = vol_s.iloc[-1]
+            
+            cur_open = open_s.iloc[-1]
+            cur_low = low_s.iloc[-1]
+            body = abs(cur_price - cur_open)
+            lower_tail = min(cur_price, cur_open) - cur_low
+            
+            # 거래량 폭증 + 투매 클라이막스 캔들(아랫꼬리가 몸통의 2배 초과)
+            is_tail_vol_spike = (cur_vol > vol_20ma * 2) and (lower_tail > body * 2) and (body > 0)
+            
+            state_idx, state_title, state_color, guide_txt = evaluate_timing_state(mdd, ma_diff, fear_val, rsi, is_tail_vol_spike, th, recovery_rate_now)
+            
+            st.markdown(f"#### <span style='color:{state_color};'>{state_title}</span>", unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div style='background-color:{state_color}; color:white; padding:20px 24px; border-radius:12px; margin-bottom:24px; font-size:1.15rem; font-weight:600; line-height:1.6; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'>
+                {guide_txt}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            c1, c2, c3, c4, c5 = st.columns(5)
+            with c1:
+                with st.container(border=True):
+                    val_color = "#ef4444" if mdd <= -20 else "#eab308" if mdd <= -10 else "#334155"
+                    st.markdown(f"<div title='고점 대비 하락률(Maximum Drawdown). 수치가 낮을수록 바닥에 근접했음을 의미합니다.' style='font-size:0.875rem; color:#6b7280; font-weight:600;'>MDD 하락률 <span style='font-size:0.7rem; color:#9ba3af;'>ⓘ</span></div><div title='고점 대비 하락률' style='font-size:1.4rem; font-weight:800; color:{val_color};'>{mdd:.1f}%</div>", unsafe_allow_html=True)
+            with c2:
+                with st.container(border=True):
+                    val_color = "#ef4444" if fear_val >= 30 else "#eab308" if fear_val >= 20 else "#334155"
+                    st.markdown(f"<div title='시장 변동성/공포 지수. 30~40 이상이면 극도의 공포 상태(단기 바닥 및 매수 기회)로 봅니다.' style='font-size:0.875rem; color:#6b7280; font-weight:600;'>현재 {fear_idx_name} 지수 <span style='font-size:0.7rem; color:#9ba3af;'>ⓘ</span></div><div title='공포/변동성 지수' style='font-size:1.4rem; font-weight:800; color:{val_color};'>{fear_val:.1f}</div>", unsafe_allow_html=True)
+            with c3:
+                with st.container(border=True):
+                    val_color = "#ef4444" if rsi <= 30 else "#10b981" if rsi >= 70 else "#334155"
+                    st.markdown(f"<div title='상대강도지수(14일). 30 이하면 과매도(바닥권), 70 이상이면 과매수(천장권) 상태입니다.' style='font-size:0.875rem; color:#6b7280; font-weight:600;'>RSI (14일) <span style='font-size:0.7rem; color:#9ba3af;'>ⓘ</span></div><div title='RSI 지수' style='font-size:1.4rem; font-weight:800; color:{val_color};'>{rsi:.1f}</div>", unsafe_allow_html=True)
+            with c4:
+                with st.container(border=True):
+                    val_color = "#ef4444" if ma_diff < 0 else "#10b981"
+                    st.markdown(f"<div title='{ma_days}일 장기 이동평균선 확인. 주가가 이보다 아래에 있으면 역배열(하락 추세)일 확률이 높습니다. ETF/지수는 200일, 개별종목은 120일 기준.' style='font-size:0.875rem; color:#6b7280; font-weight:600;'>{ma_days}일선 위치 <span style='font-size:0.7rem; color:#9ba3af;'>ⓘ</span></div><div title='장기 이평선 기준 위치' style='font-size:1.4rem; font-weight:800; color:{val_color};'>{'하향 이탈' if ma_diff < 0 else '안정 (상단)'}</div>", unsafe_allow_html=True)
+            with c5:
+                # 역사적 회복률 수치만 심플하게 표시
+                with st.container(border=True):
+                    is_rec_hit = recovery_rate_now >= th['rec_th']
+                    val_color = "#ef4444" if is_rec_hit else "#334155"
+                    st.markdown(f"<div title='과거 전체 데이터 대비 현재의 낙폭이 얼마나 깊은 바닥인지 통계로 나타낸 수치. 수치가 높을수록 역사적 저점에 가깝습니다.' style='font-size:0.875rem; color:#6b7280; font-weight:600;'>역사적 회복률 <span style='font-size:0.7rem; color:#9ba3af;'>ⓘ</span></div><div style='font-size:1.4rem; font-weight:800; color:{val_color};'>{recovery_rate_now:.1f}%</div>", unsafe_allow_html=True)
+                     
+            # --- Historical State Evaluation & Graph ---
+            ma_val_series = close_s.rolling(ma_days).mean()
+            ma_diff_series = (close_s - ma_val_series) / ma_val_series * 100
+            high_52w_series = close_s.rolling(252).max()
+            mdd_series = (close_s - high_52w_series) / high_52w_series * 100
+            
+            vol_20ma_series = vol_s.rolling(20).mean()
+            body_series = (close_s - open_s).abs()
+            lower_tail_series = pd.concat([open_s, close_s], axis=1).min(axis=1) - low_s
+            is_tail_vol_spike_series = (vol_s > vol_20ma_series * 2) & (lower_tail_series > body_series * 2) & (body_series > 0)
+            
+            fear_series = pd.Series(20.0, index=close_s.index)
+            if not vix_df.empty and "Close" in vix_df.columns:
+                v_s = vix_df["Close"].iloc[:, 0] if isinstance(vix_df["Close"], pd.DataFrame) else vix_df["Close"]
+                fear_series = v_s.reindex(close_s.index).ffill().fillna(20.0)
+                
+            # 한국 종목일 경우 최근 VKOSPI 히스토리 가져오기 (최근 약 100일)
+            vk_history = {}
+            if is_korean:
+                vk_history = fetch_vkospi_history(100)
+                
+            state_history = []
+            # Calculate rolling recovery rate history
+            for dt_idx in close_s.index:
+                c_mdd = mdd_series.loc[dt_idx]
+                c_ma = ma_diff_series.loc[dt_idx]
+                c_feat = fear_series.loc[dt_idx] # 기본값: VIX (Proxy)
+                c_rsi = rsi_s.loc[dt_idx]
+                c_tail = is_tail_vol_spike_series.loc[dt_idx]
+                
+                # 한국 종목이고 해당 날짜의 VKOSPI가 있다면 우선 적용 (표준화된 date 비교)
+                if is_korean and vk_history and dt_idx.date() in vk_history:
+                    c_feat = vk_history[dt_idx.date()]
+                
+                # 실시간 진단과 그래프 동기화: 마지막 날의 공포 지수는 실시간 fetch된 fear_val 사용 (최신성 우선)
+                if dt_idx == close_s.index[-1]:
+                    c_feat = fear_val
+                
+                # Historical Recovery Rate at that moment (using full history)
+                c_mdd_val = c_mdd/100.0
+                c_rec_rate = (mdd_for_stat >= c_mdd_val).sum() / total_stat_days * 100 if total_stat_days > 0 else 0
+                
+                if pd.isna(c_mdd) or pd.isna(c_ma):
+                    state_history.append(0)
+                else:
+                    s_idx, _, _, _ = evaluate_timing_state(c_mdd, c_ma, c_feat, c_rsi, c_tail, th, c_rec_rate)
+                    state_history.append(s_idx)
+            
+            state_series = pd.Series(state_history, index=close_s.index)
+            
+            # Determine how many trading days to plot
+            if history_period == "1년":
+                dt_days = 252
+            elif history_period == "3년":
+                dt_days = 252 * 3
+            elif history_period == "5년":
+                dt_days = 252 * 5
+            else:
+                dt_days = 252 * 10
+                
+            plot_df = pd.DataFrame({"Price": close_s, "State": state_series}).dropna().tail(dt_days)
+            # Format index to string to avoid weekend gaps in Plotly category axis
+            plot_df.index = plot_df.index.strftime('%Y-%m-%d')
+            
+            fig = go.Figure()
+            # Changed opacity to make the colors much more vivid and visible against the background
+            color_map = {0: 'rgba(255, 255, 255, 0.0)', 1: 'rgba(234, 179, 8, 0.6)', 2: 'rgba(249, 115, 22, 0.8)', 3: 'rgba(220, 38, 38, 1.0)'}
+            colors = plot_df['State'].map(color_map).tolist()
+            
+            # Uniform height bars (background feeling)
+            fig.add_trace(go.Bar(
+                x=plot_df.index, y=[1] * len(plot_df),
+                marker_color=colors, name="매수 구간", yaxis="y1",
+                width=1.0, marker_line_width=0, # Removes tiny white space gaps between contiguous blocks
+                hovertemplate="날짜: %{x}<br>매수 등급: %{customdata}단계<extra></extra>",
+                customdata=plot_df['State'].tolist()
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=plot_df.index, y=plot_df['Price'],
+                mode='lines', name='주가',
+                line=dict(color='#1e3a8a', width=2), yaxis="y2",
+                hovertemplate="주가: %{y:,.2f}<extra></extra>"
+            ))
+            
+            fig.update_layout(
+                title=f"📈 {history_period} 타이밍 등급 히스토리 차트",
+                yaxis=dict(range=[0, 1], showticklabels=False, fixedrange=True, side="left"),
+                yaxis2=dict(title="주가", overlaying="y", side="right", showgrid=False),
+                xaxis=dict(type='category', tickmode='auto', nticks=12),
+                bargap=0, # Removes the gap between bars
+                hovermode="x unified", template="plotly_white", height=350,
+                margin=dict(l=20, r=40, t=50, b=20),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.plotly_chart(fig, use_container_width=True)
+            if is_korean:
+                if not vk_history:
+                    st.warning("⚠️ 최근 VKOSPI 히스토리 데이터를 가져오지 못해 과거 차트 분석에 VIX 지수를 대신 사용했습니다. (오늘 수치는 정상 반영)")
+                st.caption("※ 안내: 분석을 위한 과거 변동성/공포 지표는 미국 VIX 지수가 대용으로 일괄 매핑되었습니다.")
+            
+            # 하단에 자산군 판별 상세 정보 안내 (요청에 따라 상세 내용 복구)
+            st.info(f"🔍 **자동 판별 알림**: 이 종목은 **[{cat_name}]** 자산군입니다. (기준: MDD {th['mdd3']}% / 회복률 {th['rec_th']}% 이상 시 3단계 진단)")
+
+            with st.expander("📖 매수 시점 판별 기준 및 지표 상세 설명 보기"):
+                st.markdown(f"""
+                <div style='line-height: 1.7; font-size: 0.95rem;'>
+                <b>1️⃣ 개별 지표 상세 기준 (현재 자산군: {cat_name})</b><br>
+                <ul>
+                    <li><b>역사적 회복률 (통계적 바닥)</b>: 과거 전체 데이터 중 현재보다 낙폭이 적었던 비율. <br>
+                        <span style='color:#ef4444; font-weight:bold;'>🔴 {th['rec_th']}% 이상</span> (역사적 하위 10~20% 수준의 강력한 바닥 인증)</li>
+                    <li><b>MDD (최대 낙폭)</b>: 52주 최고점 대비 하락률. <br>
+                        <span style='color:#ef4444; font-weight:bold;'>🔴 {th['mdd3']}% 이하</span> (강한 약세장) / <span style='color:#eab308; font-weight:bold;'>🟡 {th['mdd1']}% 이하</span> (단기 조정)</li>
+                    <li><b>{fear_idx_name} 지수 (변동성)</b>: 시장의 공포 심리. <br>
+                        <span style='color:#ef4444; font-weight:bold;'>🔴 35 이상</span> (패닉 셀링 구간) / <span style='color:#eab308; font-weight:bold;'>🟡 22 이상</span> (변동성 확대)</li>
+                    <li><b>RSI (14일)</b>: 주가 매수/매도 강도. <br>
+                        <span style='color:#ef4444; font-weight:bold;'>🔴 30 이하</span> (강력 과매도) / <span style='color:#eab308; font-weight:bold;'>🟡 40 이하</span> (단기 과매도)</li>
+                    <li><b>장기 추세선 ({ma_days}일선)</b>: 큰 추세의 꺾임 여부 확인. <br>
+                        <span style='color:#ef4444; font-weight:bold;'>🔴 하향 이탈</span> (역배열 진입) / <span style='color:#10b981; font-weight:bold;'>🟢 안정 유지</span> (상승 추세)</li>
+                </ul>
+                <br>
+                <b>2️⃣ 시스템 매수 구간 단계별 판별 조합 (역사적 회복률 충족 시 인증마크 부여)</b><br>
+                <div style='background-color:#fee2e2; padding:10px; border-radius:8px; margin-bottom:8px;'>
+                <span style='color:#ef4444; font-weight:bold;'>🔴 3단계 (시스템 투매 국면) - "찐 저점 포착"</span><br>
+                조건: (<b>MDD {th['mdd3']}% 이하</b> AND <b>VIX 35 이상</b>) OR (<b>MDD {th['mdd_tail']}% 이하</b> AND <b>투매용 꼬리 거래량 발생</b>)
+                </div>
+                <div style='background-color:#ffedd5; padding:10px; border-radius:8px; margin-bottom:8px;'>
+                <span style='color:#f97316; font-weight:bold;'>🟠 2단계 (약세장 투매 구간) - "비중 대폭 확대"</span><br>
+                조건: <b>MDD {th['mdd2']}% 이하</b> AND (<b>VIX 30 이상</b> OR <b>RSI 30 이하</b>)
+                </div>
+                <div style='background-color:#fef9c3; padding:10px; border-radius:8px; margin-bottom:8px;'>
+                <span style='color:#eab308; font-weight:bold;'>🟡 1단계 (단기 조정 구간) - "비중 일부 확대"</span><br>
+                조건: <b>MDD {th['mdd1']}% 이하</b> AND (<b>VIX 22 이상</b> OR <b>RSI 40 이하</b>)
+                </div>
+                <div style='background-color:#f1f5f9; padding:10px; border-radius:8px;'>
+                <span style='color:#64748b; font-weight:bold;'>💤 0단계 (관망/정기 매수 구간)</span><br>
+                조건: 위 조건에 해당하지 않는 평시 상태. (역사적 회복률 {th['rec_th']}% 미달 시에도 매수 신호는 정상 출력되나 인증마크는 제외됨)
+                </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 def render_c_indicator_section():
     st.markdown("### 📊 CI 지수")
-    st.markdown("나스닥 종합지수(^NDX)의 일일 종가를 몬테카를로 시뮬레이션 결과 중 하나로 가정하였을 때, 백분율 순위로 계량화한 것으로, 현재 시장의 확률상 적정성 평가에 활용할 수 있습니다.")
+    st.markdown("현재 주가가 과거 장기 성장 추세에 비추어 볼 때 어느 정도의 고평가 또는 저평가 상태인지 직관적으로 보여주는 지표입니다.")
 
     col1, col2 = st.columns([1, 3])
     with col1:
@@ -1410,58 +2119,89 @@ def render_c_indicator_section():
             norm_ticker = res["norm_ticker"]
             
             # 과거 시계열 확률 밴드 데이터 계산
-            df_plot = calculate_c_indicator_history(norm_ticker, res["S0"], res["mu"], res["sigma"], res["start_date"], years=50)
+            df_plot = calculate_c_indicator_history(norm_ticker, res["S0"], res["mu"], res["sigma"], res["start_date"])
 
-            st.markdown(f"#### {display_name} CI 지수 차트 (최근 50년)")
+            years_approx = res['t'] // 252
+            
+            st.markdown(f"#### {display_name} CI 가격 밴드 차트 (전체 {years_approx}년 상장 기간)")
             fig_ci = go.Figure()
             if not df_plot.empty:
-                # 옅은 반투명 배경 밴드 추가
-                fig_ci.add_hrect(y0=45, y1=55, fillcolor="rgba(76, 175, 80, 0.15)", line_width=0, layer="below")
-                fig_ci.add_hrect(y0=37.5, y1=45, fillcolor="rgba(244, 67, 54, 0.15)", line_width=0, layer="below")
-                fig_ci.add_hrect(y0=55, y1=62.5, fillcolor="rgba(33, 150, 243, 0.15)", line_width=0, layer="below")
-
-                # 3대 기준 실선 (상단: 빨강, 중앙: 초록, 하단: 파랑)
-                fig_ci.add_hline(y=25, line_width=2.5, line_color="#d32f2f", opacity=0.8, layer="below")
-                fig_ci.add_hline(y=50, line_width=2.5, line_color="#2e7d32", opacity=0.8, layer="below")
-                fig_ci.add_hline(y=75, line_width=2.5, line_color="#1976d2", opacity=0.8, layer="below")
-
-                # 실제 CI 지수 선 추가
-                fig_ci.add_trace(go.Scatter(
-                    x=df_plot["Date"], y=df_plot["CI_Percentile"],
-                    mode="lines", line=dict(color="#111827", width=1.5),
-                    name="CI 지수",
-                    hovertemplate="%{x|%Y-%m-%d}<br>CI 지수: %{y:.1f}%<extra></extra>"
-                ))
+                # 7단계 색상 설정 (유저 요청: 이전처럼 예전 채도 낮고 매끄러운 3원색 트랜지션)
+                colors = {
+                    "75_100": {"fill": "rgba(33, 150, 243, 0.35)", "line": "rgba(33, 150, 243, 0.70)"}, # 초저평가 (파랑 강하게)
+                    "625_75": {"fill": "rgba(33, 150, 243, 0.20)", "line": "rgba(33, 150, 243, 0.50)"}, # 지나친 저평가
+                    "55_625": {"fill": "rgba(33, 150, 243, 0.08)", "line": "rgba(33, 150, 243, 0.30)"}, # 약간의 저평가
+                    "45_55":  {"fill": "rgba(76, 175, 80, 0.15)",  "line": "rgba(76, 175, 80, 0.40)"},  # 적정 (초록)
+                    "375_45": {"fill": "rgba(244, 67, 54, 0.08)", "line": "rgba(244, 67, 54, 0.30)"}, # 약간의 고평가
+                    "25_375": {"fill": "rgba(244, 67, 54, 0.20)", "line": "rgba(244, 67, 54, 0.50)"}, # 지나친 고평가
+                    "0_25":   {"fill": "rgba(244, 67, 54, 0.35)", "line": "rgba(244, 67, 54, 0.70)"}  # 초고위험 (빨강 강하게)
+                }
                 
-                # 우측 스택 바 레전드 (Shapes & Annotations)
-                right_legend = [
-                    (0, 25, '#d32f2f', '초고위험'),
-                    (25, 37.5, '#ef5350', '지나친 고평가 구간'),
-                    (37.5, 45, '#ffebee', '약간의 고평가 구간'),
-                    (45, 55, '#e8f5e9', '확률상 적정범위'),
-                    (55, 62.5, '#e3f2fd', '약간의 저평가 구간'),
-                    (62.5, 75, '#64b5f6', '지나친 저평가 구간'),
-                    (75, 100, '#1976d2', '초저평가')
-                ]
-                for y0, y1, color, text in right_legend:
-                    fig_ci.add_shape(
-                        type="rect", xref="paper", yref="y",
-                        x0=1.01, x1=1.025, y0=y0, y1=y1, fillcolor=color, line=dict(width=0)
-                    )
-                    fig_ci.add_annotation(
-                        x=1.035, y=(y0+y1)/2, xref="paper", yref="y", text=text,
-                        xanchor="left", showarrow=False, font=dict(size=11, color="#475569")
-                    )
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_01"], mode="lines", line=dict(width=1, color=colors["75_100"]["line"]), showlegend=False, hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_25"], mode="lines", fill="tonexty", fillcolor=colors["75_100"]["fill"], line=dict(width=1, color=colors["75_100"]["line"]), name="75~100% (초저평가)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_375"], mode="lines", fill="tonexty", fillcolor=colors["625_75"]["fill"], line=dict(width=1, color=colors["625_75"]["line"]), name="62.5~75% (지나친 저평가)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_45"], mode="lines", fill="tonexty", fillcolor=colors["55_625"]["fill"], line=dict(width=1, color=colors["55_625"]["line"]), name="55~62.5% (약간의 저평가)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_55"], mode="lines", fill="tonexty", fillcolor=colors["45_55"]["fill"], line=dict(width=1, color=colors["45_55"]["line"]), name="45~55% (확률상 적정범위)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_625"], mode="lines", fill="tonexty", fillcolor=colors["375_45"]["fill"], line=dict(width=1, color=colors["375_45"]["line"]), name="37.5~45% (약간의 고평가)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_75"], mode="lines", fill="tonexty", fillcolor=colors["25_375"]["fill"], line=dict(width=1, color=colors["25_375"]["line"]), name="25~37.5% (지나친 고평가)", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Band_99"], mode="lines", fill="tonexty", fillcolor=colors["0_25"]["fill"], line=dict(width=1, color=colors["0_25"]["line"]), name="0~25% (초고위험)", hoverinfo="skip"))
+                
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Median"], mode="lines", line=dict(color="#059669", width=2, dash="dash"), name="장기 중앙 추세선", hoverinfo="skip"))
+                fig_ci.add_trace(go.Scatter(x=df_plot["Date"], y=df_plot["Price"], mode="lines", line=dict(color="#111827", width=2), name="실제 주가", customdata=df_plot["CI_Percentile"], hovertemplate="주가: %{y:,.0f}<br>CI 지수: %{customdata:.1f}%<extra></extra>"))
 
+                import math
+                # 오른쪽 끝 밴드 선에 맞춰 퍼센트만 심플하게 텍스트로 표시 (자석 정렬)
+                bands = [
+                    (math.log10(df_plot["Band_99"].iloc[-1]), "0%"),
+                    (math.log10(df_plot["Band_75"].iloc[-1]), "25%"),
+                    (math.log10(df_plot["Band_625"].iloc[-1]), "37.5%"),
+                    (math.log10(df_plot["Band_55"].iloc[-1]), "45%"),
+                    (math.log10(df_plot["Band_45"].iloc[-1]), "55%"),
+                    (math.log10(df_plot["Band_375"].iloc[-1]), "62.5%"),
+                    (math.log10(df_plot["Band_25"].iloc[-1]), "75%"),
+                    (math.log10(df_plot["Band_01"].iloc[-1]), "100%")
+                ]
+                for y_val, text in bands:
+                    fig_ci.add_annotation(
+                        x=1.01, y=y_val, xref="paper", yref="y", text=text,
+                        xanchor="left", yanchor="middle", showarrow=False, 
+                        font=dict(size=11, color="#64748b")
+                    )
+            
             fig_ci.update_layout(
-                height=550, margin=dict(l=0, r=160, t=30, b=0), # 우측 레전드를 위해 여백(r) 확보
-                yaxis=dict(
-                    title="CI 지수 (%)", range=[100, 0], 
-                    tickvals=[0, 25, 37.5, 45, 55, 62.5, 75, 100],
-                    ticktext=["0%", "25%", "37.5%", "45%", "55%", "62.5%", "75%", "100%"]
+                height=650, margin=dict(l=0, r=40, t=30, b=10), # 퍼센트 텍스트(예: 37.5%)가 들어갈 만큼만 우측 여백 최소화
+                yaxis=dict(title="주가 (Log Scale)", type="log", tickformat=",.0f"),
+                xaxis=dict(
+                    hoverformat="%Y-%m-%d",
+                    rangeselector=dict(
+                        buttons=list([
+                            dict(count=1, label="1년", step="year", stepmode="backward"),
+                            dict(count=3, label="3년", step="year", stepmode="backward"),
+                            dict(count=5, label="5년", step="year", stepmode="backward"),
+                            dict(count=10, label="10년", step="year", stepmode="backward"),
+                            dict(step="all", label="전체(Max)")
+                        ])
+                    ),
+                    rangeslider=dict(
+                        visible=True,
+                        thickness=0.08,
+                        bgcolor="rgba(240, 244, 248, 0.5)",
+                        bordercolor="rgba(200, 200, 200, 0.3)"
+                    ),
+                    type="date"
                 ),
                 template="plotly_white",
-                showlegend=False
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="top",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=12),
+                    traceorder="reversed" # 위험도가 가장 큰 부분부터 순서대로
+                ),
+                hovermode="x unified"
             )
             st.plotly_chart(fig_ci, use_container_width=True)
 
@@ -1480,8 +2220,8 @@ def render_c_indicator_section():
                 with st.container(border=True):
                     wait_y = res.get('wait_years', 0)
                     wait_text = f"약 {wait_y:.1f}년 소요" if wait_y > 0 else "저평가 (대기 불필요)"
-                    tooltip = "현재가로 매수 후 주가가 폭락하여 중앙 추세선으로 회귀하더라도, 시장의 장기 성장률에 의해 본전을 찾을 때까지 걸리는 시간입니다. 즉 미래의 수익을 몇 년치 미리 지불하고 있는지를 나타냅니다."
-                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;' title='{tooltip}'>장기 추세선 도달 기간</div><div style='font-size:1.5rem; font-weight:700;'>{wait_text}</div>", unsafe_allow_html=True)
+                    tooltip = "현재 주가가 중앙 적정가 수준으로 하락할 경우, 장기 성장 복리를 통해 원금을 회복할 때까지 걸리는 예상 시간입니다."
+                    st.markdown(f"<div style='font-size:0.875rem; color:#6b7280; margin-bottom:0.1rem;' title='{tooltip}'>원금 회복 대기 기간</div><div style='font-size:1.5rem; font-weight:700;'>{wait_text}</div>", unsafe_allow_html=True)
             
             ci_v = res['ci_val']
             if ci_v <= 25:
@@ -1510,7 +2250,7 @@ def render_c_indicator_section():
             </div>
             """, unsafe_allow_html=True)
 
-            st.caption(f"* 분석 기간: 최근 {res['t']:,} 거래일 (약 50년) | 기준가(S0): {res['S0']:,.2f} | 일일 평균수익률(μ): {res['mu']:.6f} | 일일 변동성(σ): {res['sigma']:.6f}")
+            st.caption(f"* 분석 기간: 전체 상장 기간 {res['t']:,} 거래일 (약 {res['t'] // 252}년) | 기준가(S0): {res['S0']:,.2f} | 일일 평균수익률(μ): {res['mu']:.6f} | 일일 변동성(σ): {res['sigma']:.6f}")
 
 
 # -----------------------------
@@ -1535,6 +2275,8 @@ def main():
                 st.session_state[k] = v
         st.session_state.settings_loaded = True
 
+    st.markdown(TAX_BADGE_CSS, unsafe_allow_html=True)
+
     st.title("📊 주식 분석 & 포트폴리오 대시보드")
     st.caption(
         "파이썬 + Streamlit + yfinance 기반으로 시장 지표, 내 자산, 종목 비교 분석을 한 번에 보는 대시보드입니다."
@@ -1547,6 +2289,8 @@ def main():
     render_comparison_section()
     st.markdown("---")
     render_simulation_section()
+    st.markdown("---")
+    render_timing_section()
     st.markdown("---")
     render_c_indicator_section()
     
